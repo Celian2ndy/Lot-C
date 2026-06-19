@@ -30,6 +30,7 @@ informations. Je les **signale** (garde-fou #5/C6) plutôt que de les inventer :
 | **Incompatibilités** | Le plan doit être « sans incompatibilités mutuelles » (Étape 2). Proposé comme **liste séparée** du catalogue `incompatibilities: [{ a, b, reason }]` (calque CDC §13.1), partagée avec A. | — |
 | `expectedGainPct` (number ≥ 0) | `OcProposal.step.expectedGainPct` est **requis** par le contrat, et la sélection OC **maximise le gain**. Requis pour les tweaks OC (`source=vendorSdk`, `riskLevel=veryLow`). | `0` |
 | `effect` (objet structuré) | Pour calculer `estimatedScoreAfter` / `achievable`, C doit **simuler** l'effet du tweak sur `settingsState` puis recalculer le score. `action` est opaque (interprété par A seul). Proposé : `effect = { domain, field, value }` (ex. `{cpu, powerPlan, "High performance"}`). | — |
+| `isOverclocking` (bool) | Distingue les réglages du **plan 1-clic** (optimisation) de ceux du **flux OC opt-in séparé** (`OcProposal`). `source=vendorSdk` ne suffit pas (un profil pilote constructeur n'est pas de l'OC). | `false` |
 
 > **Question d'encodage clé** : `action`/`revert` doivent être interprétables par **A** (exécution) ; or
 > C a besoin de connaître l'**effet sur le score** d'un tweak. D'où le champ `effect` séparé (lisible par
