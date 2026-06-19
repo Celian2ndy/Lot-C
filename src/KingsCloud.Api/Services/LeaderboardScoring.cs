@@ -30,15 +30,27 @@ public sealed class LeaderboardScoring
             throw new InvalidDataException("rawMetrics invalide : " + ex.Message, ex);
         }
 
-        // scoreId/computedAt sont des métadonnées injectées (sans effet sur le score) — voir C1.
-        var result = _engine.Compute(snapshot, Guid.NewGuid(), DateTimeOffset.UtcNow);
+        // Un null EXPLICITE sur un sous-objet requis (System.Text.Json écrase l'initialiseur) -> 400, pas 500.
+        if (snapshot.Hardware is null || snapshot.SettingsState is null || snapshot.Metrics is null)
+            throw new InvalidDataException("rawMetrics incomplet : hardware, settingsState et metrics sont requis.");
 
-        return new RecomputeResult(
-            result.Global,
-            result.WeightsetVersion,
-            TierClassifier.Classify(snapshot),
-            ConfigHash.Compute(snapshot),
-            snapshot.SnapshotId);
+        try
+        {
+            // scoreId/computedAt sont des métadonnées injectées (sans effet sur le score) — voir C1.
+            var result = _engine.Compute(snapshot, Guid.NewGuid(), DateTimeOffset.UtcNow);
+
+            return new RecomputeResult(
+                result.Global,
+                result.WeightsetVersion,
+                TierClassifier.Classify(snapshot),
+                ConfigHash.Compute(snapshot),
+                snapshot.SnapshotId);
+        }
+        catch (Exception ex) when (ex is NullReferenceException or ArgumentException)
+        {
+            // rawMetrics structurellement incohérent (sous-objet null en profondeur) -> 400, pas 500.
+            throw new InvalidDataException("rawMetrics incohérent ou incomplet : " + ex.Message, ex);
+        }
     }
 }
 

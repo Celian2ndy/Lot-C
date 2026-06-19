@@ -13,20 +13,20 @@ public static class DevSeeder
 {
     public const string DevLicenseKey = "DEV-LICENSE-KEY";
 
-    public static async Task SeedAsync(KingsCloudDbContext db, PackSigner signer)
+    public static async Task SeedAsync(KingsCloudDbContext db, PackSigner signer, IdentityHasher identityHasher)
     {
-        await SeedAccountAsync(db);
+        await SeedAccountAsync(db, identityHasher);
         await SeedPackAsync(db, signer);
     }
 
-    private static async Task SeedAccountAsync(KingsCloudDbContext db)
+    private static async Task SeedAccountAsync(KingsCloudDbContext db, IdentityHasher identityHasher)
     {
         if (await db.Accounts.AnyAsync()) return;
 
         var account = new Account
         {
             Id = Guid.NewGuid(),
-            AccountHash = Hashing.Sha256Hex("dev-user"),
+            AccountHash = identityHasher.Hash("dev-user"),
             Display = "DevPlayer",
             Locale = "fr",
             CreatedAt = DateTimeOffset.UtcNow,
@@ -36,7 +36,7 @@ public static class DevSeeder
         {
             Id = Guid.NewGuid(),
             AccountId = account.Id,
-            LicenseKeyHash = Hashing.Sha256Hex(DevLicenseKey),
+            LicenseKeyHash = identityHasher.Hash(DevLicenseKey),
             Plan = LicensePlan.Pro,
             Status = LicenseState.Active,
             ExpiresAt = DateTimeOffset.UtcNow.AddYears(1),

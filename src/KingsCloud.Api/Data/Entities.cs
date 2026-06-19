@@ -3,8 +3,9 @@ namespace Kings.Cloud.Api.Data;
 /// <summary>Plan de licence (contrat OpenAPI : Free | Pro).</summary>
 public enum LicensePlan { Free, Pro }
 
-/// <summary>État de licence.</summary>
-public enum LicenseState { Active, Expired, Invalid }
+/// <summary>État de licence. Ordre choisi pour que le DÉFAUT (valeur 0) soit fail-closed : une
+/// License insérée sans Status explicite vaut <c>Invalid</c>, jamais <c>Active</c>. Stocké en texte.</summary>
+public enum LicenseState { Invalid, Active, Expired }
 
 /// <summary>
 /// Compte utilisateur. Confidentialité by design (C8/D7) : AUCUN e-mail en clair en base.

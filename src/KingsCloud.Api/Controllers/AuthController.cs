@@ -12,7 +12,13 @@ namespace Kings.Cloud.Api.Controllers;
 public sealed class AuthController : ControllerBase
 {
     private readonly KingsCloudDbContext _db;
-    public AuthController(KingsCloudDbContext db) => _db = db;
+    private readonly IdentityHasher _identityHasher;
+
+    public AuthController(KingsCloudDbContext db, IdentityHasher identityHasher)
+    {
+        _db = db;
+        _identityHasher = identityHasher;
+    }
 
     /// <summary>Ouvre une session liée à la licence et renvoie un jeton (client unique : le Cœur).</summary>
     [AllowAnonymous]
@@ -22,10 +28,14 @@ public sealed class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.LicenseKey))
             return Unauthorized(new { errorCode = "ERR_UNAUTHORIZED", message = "Clé de licence manquante." });
 
-        var keyHash = Hashing.Sha256Hex(req.LicenseKey);
+        var keyHash = _identityHasher.Hash(req.LicenseKey);
         var license = await _db.Licenses.FirstOrDefaultAsync(l => l.LicenseKeyHash == keyHash);
-        if (license is null || license.Status != LicenseState.Active)
-            return Unauthorized(new { errorCode = "ERR_UNAUTHORIZED", message = "Licence invalide ou inactive." });
+
+        // Fail-closed : on exige Active ET non expirée (le Status seul ne suffit pas — l'expiration
+        // pourrait ne pas avoir basculé l'état).
+        var expired = license?.ExpiresAt is { } exp && exp <= DateTimeOffset.UtcNow;
+        if (license is null || license.Status != LicenseState.Active || expired)
+            return Unauthorized(new { errorCode = "ERR_UNAUTHORIZED", message = "Licence invalide, inactive ou expirée." });
 
         var token = Hashing.NewToken();
         var now = DateTimeOffset.UtcNow;

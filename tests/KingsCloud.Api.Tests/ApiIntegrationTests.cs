@@ -89,6 +89,26 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Submit_with_null_required_subobject_returns_400_not_500()
+    {
+        var client = await AuthenticatedClientAsync();
+        var input = ApiFixtures.HighEndInput().AsObject();
+        input["settingsState"] = null; // sous-objet requis mis à null explicite
+
+        var body = new JsonObject
+        {
+            ["snapshotId"] = Guid.NewGuid().ToString(),
+            ["rawMetrics"] = input,
+        };
+        var resp = await client.PostAsync("/v1/leaderboard/submit",
+            new StringContent(body.ToJsonString(), System.Text.Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+        var b = await resp.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("ERR_INVALID_RAWMETRICS", b.GetProperty("errorCode").GetString());
+    }
+
+    [Fact]
     public async Task Leaderboard_get_returns_recomputed_entry()
     {
         var client = await AuthenticatedClientAsync();

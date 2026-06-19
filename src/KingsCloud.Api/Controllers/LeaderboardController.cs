@@ -36,24 +36,49 @@ public sealed class LeaderboardController : ControllerBase
         catch (InvalidDataException ex) { return BadRequest(new { errorCode = "ERR_INVALID_RAWMETRICS", message = ex.Message }); }
 
         var accountId = Guid.Parse(User.FindFirstValue(SessionTokenAuthenticationHandler.AccountIdClaim)!);
+        await UpsertEntryAsync(accountId, rc, req.SnapshotId);
+
+        // Rang GLOBAL, avec le MÊME tri/tie-break que GET (score décroissant, puis UpdatedAt croissant).
+        var me = await _db.LeaderboardEntries.AsNoTracking().FirstAsync(e => e.AccountId == accountId);
+        var rank = await _db.LeaderboardEntries.CountAsync(e =>
+            e.RecomputedScore > me.RecomputedScore
+            || (e.RecomputedScore == me.RecomputedScore && e.UpdatedAt < me.UpdatedAt)) + 1;
+
+        return Ok(new SubmitResponse(rc.Score, rank));
+    }
+
+    /// <summary>Upsert résistant à la concurrence : sur violation d'unicité (double-submit du même
+    /// compte sur la 1re soumission), on bascule en mise à jour de l'entrée existante.</summary>
+    private async Task UpsertEntryAsync(Guid accountId, RecomputeResult rc, Guid snapshotId)
+    {
         var entry = await _db.LeaderboardEntries.FirstOrDefaultAsync(e => e.AccountId == accountId);
-        if (entry is null)
+        var isNew = entry is null;
+        entry ??= new LeaderboardEntry { Id = Guid.NewGuid(), AccountId = accountId };
+        if (isNew) _db.LeaderboardEntries.Add(entry);
+        Apply(entry, rc, snapshotId);
+
+        try
         {
-            entry = new LeaderboardEntry { Id = Guid.NewGuid(), AccountId = accountId };
-            _db.LeaderboardEntries.Add(entry);
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException) when (isNew)
+        {
+            _db.Entry(entry).State = EntityState.Detached;
+            var existing = await _db.LeaderboardEntries.FirstAsync(e => e.AccountId == accountId);
+            Apply(existing, rc, snapshotId);
+            await _db.SaveChangesAsync();
         }
 
         // Seul le score RECALCULÉ serveur est écrit (jamais une valeur cliente).
-        entry.RecomputedScore = rc.Score;
-        entry.WeightsetVersion = rc.WeightsetVersion;
-        entry.Tier = rc.Tier;
-        entry.ConfigHash = rc.ConfigHash;
-        entry.SnapshotId = req.SnapshotId;
-        entry.UpdatedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync();
-
-        var rank = await _db.LeaderboardEntries.CountAsync(e => e.RecomputedScore > rc.Score) + 1;
-        return Ok(new SubmitResponse(rc.Score, rank));
+        static void Apply(LeaderboardEntry e, RecomputeResult rc, Guid snapshotId)
+        {
+            e.RecomputedScore = rc.Score;
+            e.WeightsetVersion = rc.WeightsetVersion;
+            e.Tier = rc.Tier;
+            e.ConfigHash = rc.ConfigHash;
+            e.SnapshotId = snapshotId;
+            e.UpdatedAt = DateTimeOffset.UtcNow;
+        }
     }
 
     /// <summary>Lecture du classement (global ou par tier).</summary>
