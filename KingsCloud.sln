@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KingsScore.Tests", "tests\K
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KingsCloud.Api", "src\KingsCloud.Api\KingsCloud.Api.csproj", "{DBF35949-81EA-41D2-BFF9-D5CEF82DE930}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KingsCloud.Api.Tests", "tests\KingsCloud.Api.Tests\KingsCloud.Api.Tests.csproj", "{3CD058E0-C9C3-4EE9-AADE-9070BAEF5C0C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -34,10 +36,15 @@ Global
 		{DBF35949-81EA-41D2-BFF9-D5CEF82DE930}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DBF35949-81EA-41D2-BFF9-D5CEF82DE930}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DBF35949-81EA-41D2-BFF9-D5CEF82DE930}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3CD058E0-C9C3-4EE9-AADE-9070BAEF5C0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3CD058E0-C9C3-4EE9-AADE-9070BAEF5C0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3CD058E0-C9C3-4EE9-AADE-9070BAEF5C0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3CD058E0-C9C3-4EE9-AADE-9070BAEF5C0C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{6D87FD0E-8EFA-412B-8349-368C38ADEB9F} = {18E2E0C2-F4C4-4822-B0B3-F5BDEE1E7A1B}
 		{9667B1EE-4D67-4F17-96FA-3F8148ED53D9} = {DEAE4574-D127-48D1-8A20-0C58E0B7F0F8}
 		{DBF35949-81EA-41D2-BFF9-D5CEF82DE930} = {18E2E0C2-F4C4-4822-B0B3-F5BDEE1E7A1B}
+		{3CD058E0-C9C3-4EE9-AADE-9070BAEF5C0C} = {DEAE4574-D127-48D1-8A20-0C58E0B7F0F8}
 	EndGlobalSection
 EndGlobal

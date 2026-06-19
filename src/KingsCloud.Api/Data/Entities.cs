@@ -56,10 +56,10 @@ public sealed class LeaderboardEntry
 {
     public Guid Id { get; set; }
     public Guid AccountId { get; set; }
-    public int RecomputedScore { get; set; }       // 0..100, recalculé serveur
-    public required string WeightsetVersion { get; set; }
-    public required string Tier { get; set; }       // budget | mid | highEnd
-    public required string ConfigHash { get; set; } // empreinte anonyme de la config
+    public int RecomputedScore { get; set; }        // 0..100, recalculé serveur
+    public string WeightsetVersion { get; set; } = "";
+    public string Tier { get; set; } = "";          // budget | mid | highEnd
+    public string ConfigHash { get; set; } = "";    // empreinte anonyme de la config
     public Guid SnapshotId { get; set; }            // traçabilité
     public DateTimeOffset UpdatedAt { get; set; }
 
