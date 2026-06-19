@@ -44,13 +44,33 @@ public sealed class ScoreScaleTests
         Assert.True(neglected.Achievable > neglected.Global, "L'écart actuel → atteignable doit être positif.");
     }
 
+    [Fact]
+    public void Well_tuned_but_imperfect_machine_is_high_but_below_100()
+    {
+        // Machine sérieusement réglée mais pas parfaite : quelques services/programmes au démarrage,
+        // températures correctes sans être froides, espace disque un peu juste.
+        var s = Fixtures.Load("fixture_nvidia_intel_highend").Snapshot;
+        MakeOptimal(s);
+        s.SettingsState.System.SuperfluousServicesRunning = 2;
+        s.SettingsState.System.StartupProgramsCount = 4;
+        s.Metrics.CpuTempLoadC = 78;
+        s.Metrics.GpuTempLoadC = 73;
+        s.SettingsState.Storage.FreeSpacePct = 18;
+
+        var result = new ScoreEngine().Compute(s, ScoreId, ComputedAt);
+
+        Assert.InRange(result.Global, 85, 99);   // haut, mais pas 100
+    }
+
     /// <summary>Force tous les réglages de <c>settingsState</c> à leur valeur optimale selon les
     /// critères v0 (+ marges thermiques saines), pour atteindre le haut de l'échelle.</summary>
     private static void MakeOptimal(SystemSnapshot s)
     {
         var ss = s.SettingsState;
         ss.Gpu.DriverProfileApplied = true;
+        ss.Gpu.VendorPerfProfile = "Performance";
         ss.Cpu.BoostEnabled = true;
+        ss.Cpu.PboActive = true;
         ss.Cpu.PowerPlan = "High performance";
         ss.System.TimerResolutionMs = 0.5;
         ss.System.SuperfluousServicesRunning = 0;

@@ -4,20 +4,20 @@ using Kings.Score.Contracts.Snapshot;
 namespace Kings.Score.Scoring;
 
 /// <summary>
-/// Fonction de points v0 — PROPOSITION soumise à validation (garde-fou C7 : « mapping D'ABORD, puis
-/// on fige »). Lit l'état réel des réglages (<c>settingsState</c>) + les métriques, et attribue des
-/// points par domaine selon des critères de bonne pratique. Les <c>expectedScoreResult</c> des
-/// fixtures ne sont PAS encore figés : ils le seront par l'équipe une fois cette fonction validée.
+/// Fonction de points v0 — GRADUÉE, PROPOSITION soumise à validation (garde-fou C7).
+/// Note chaque domaine sur PLUSIEURS sous-réglages avec points PARTIELS (pas de tout-ou-rien) : les
+/// leviers numériques (timer, services, démarrage, espace, températures) suivent une rampe continue,
+/// les booléens valent 0/plein. Un domaine n'atteint 100 que si TOUS ses sous-réglages sont optimaux
+/// ⇒ le 100 reste rare. Lit uniquement des champs réellement détectables du contrat (voir
+/// proposals/score-levers.md) ; aucune mesure inventée. Aucun arrondi ici (C2).
 ///
-/// Convention : <c>pointsMaxSafe</c> = somme des points des critères APPLICABLES (≈ 100 par domaine),
-/// <c>pointsObtained</c> = somme des points des critères satisfaits. Aucun arrondi ici (C2).
+/// Inventaire des leviers et statuts ([Noté]/[Snapshot+]/[Catalogue]/[Non noté]) : proposals/score-levers.md.
+/// Non notés volontairement : FPS (affiché si mesuré), input lag (estimation), charge mémoire
+/// transitoire, puissance matérielle brute. Le barème PROFOND se figera AVEC le catalogue réel.
 ///
-/// ⚠️ Points de jugement à valider (je ne tranche pas seul) :
-///   - HAGS (<c>hagsEnabled</c>) et PBO (<c>pboActive</c>) sont dépendants de la config : NON notés en v0.
-///   - Seuils numériques (timer ≤ 1.0 ms, ≤ 3 services superflus, ≤ 8 programmes au démarrage,
-///     marge thermique CPU &lt; 85 °C / GPU &lt; 80 °C, espace disque ≥ 15 %).
-///   - Le score <c>achievable</c> précis dépend du CATALOGUE (leviers auto-applicables vs BIOS/manuel),
-///     non fourni : en v0, achievable suppose tous les leviers sûrs applicables (voir ScoreEngine).
+/// ⚠️ À valider / compléter avec le catalogue : HAGS (config-dépendant, non noté), la liste des
+/// services « superflus », les seuils des rampes, et le score achievable précis (leviers
+/// auto-applicables vs BIOS/manuel).
 /// </summary>
 public sealed class PointsFunctionV1 : IPointsFunction
 {
@@ -29,28 +29,32 @@ public sealed class PointsFunctionV1 : IPointsFunction
         return domain switch
         {
             SubscoresDomain.Gpu => Score(
-                Crit(100m, s.Gpu.DriverProfileApplied)),
+                Bool(60m, s.Gpu.DriverProfileApplied),
+                Bool(40m, !string.IsNullOrWhiteSpace(s.Gpu.VendorPerfProfile))),
 
             SubscoresDomain.Cpu => Score(
-                Crit(50m, s.Cpu.BoostEnabled),
-                Crit(50m, IsHighPerformancePlan(s.Cpu.PowerPlan))),
+                Bool(40m, s.Cpu.BoostEnabled),
+                Graded(40m, PowerPlanFactor(s.Cpu.PowerPlan)),
+                Bool(20m, s.Cpu.PboActive, applicable: snapshot.Hardware.Cpu.Vendor == CpuVendor.AMD)),
 
             SubscoresDomain.System => Score(
-                Crit(40m, s.System.TimerResolutionMs <= 1.0),
-                Crit(30m, s.System.SuperfluousServicesRunning <= 3),
-                Crit(30m, s.System.StartupProgramsCount <= 8)),
+                Graded(40m, Ramp(s.System.TimerResolutionMs, worst: 15.6, best: 1.0)),
+                Graded(30m, Ramp(s.System.SuperfluousServicesRunning, worst: 10, best: 0)),
+                Graded(30m, Ramp(s.System.StartupProgramsCount, worst: 20, best: 0))),
 
             SubscoresDomain.Ram => Score(
-                Crit(100m, s.Ram.XmpExpoActive, applicable: XmpProfileAvailable(snapshot))),
-
-            SubscoresDomain.Network => Score(
-                Crit(50m, s.Network.TcpOptimized),
-                Crit(50m, s.Network.GameDnsSet)),
+                Bool(100m, s.Ram.XmpExpoActive, applicable: XmpProfileAvailable(snapshot))),
 
             SubscoresDomain.Storage => Score(
-                Crit(50m, s.Storage.TrimEnabled),
-                Crit(30m, !s.Storage.IndexingOnSystemDrive),
-                Crit(20m, s.Storage.FreeSpacePct >= 15)),
+                Bool(40m, s.Storage.TrimEnabled, applicable: HasSsdOrNvme(snapshot)),
+                Bool(25m, !s.Storage.IndexingOnSystemDrive),
+                Graded(25m, Ramp(s.Storage.FreeSpacePct, worst: 5, best: 20)),
+                Graded(10m, SmartFactor(SystemDriveSmart(snapshot)),
+                    applicable: SystemDriveSmart(snapshot) != StorageSmartHealth.Unknown)),
+
+            SubscoresDomain.Network => Score(
+                Bool(60m, s.Network.TcpOptimized),
+                Bool(40m, s.Network.GameDnsSet)),
 
             SubscoresDomain.Thermal => EvaluateThermal(snapshot),
 
@@ -60,47 +64,74 @@ public sealed class PointsFunctionV1 : IPointsFunction
 
     private static DomainPoints EvaluateThermal(SystemSnapshot snapshot)
     {
-        // Neutralisé si le domaine thermique n'est pas mesurable (aucun capteur exploitable).
+        // Neutralisé si aucun capteur exploitable : jamais inventer une température.
         if (!snapshot.SettingsState.Thermal.Measurable)
             return DomainPoints.Neutralized();
 
         var m = snapshot.Metrics;
-        var cpuLoad = m.CpuTempLoadC;
-        var gpuLoad = m.GpuTempLoadC;
-        var marginApplicable = cpuLoad.HasValue && gpuLoad.HasValue;
-        var marginOk = marginApplicable && cpuLoad!.Value < 85 && gpuLoad!.Value < 80;
-
         return Score(
-            Crit(50m, !snapshot.SettingsState.Thermal.ThrottlingDetected),
-            Crit(50m, marginOk, applicable: marginApplicable));
+            Bool(40m, !snapshot.SettingsState.Thermal.ThrottlingDetected),
+            Graded(30m, Ramp(m.CpuTempLoadC ?? 0d, worst: 90, best: 70), applicable: m.CpuTempLoadC.HasValue),
+            Graded(30m, Ramp(m.GpuTempLoadC ?? 0d, worst: 85, best: 65), applicable: m.GpuTempLoadC.HasValue));
     }
 
-    /// <summary>Un critère noté : <paramref name="points"/> obtenus si <paramref name="satisfied"/>,
-    /// comptant dans le max sûr seulement si <paramref name="applicable"/> à cette config.</summary>
-    private static (decimal Points, bool Satisfied, bool Applicable) Crit(decimal points, bool satisfied, bool applicable = true)
-        => (points, satisfied, applicable);
+    // ----- Mécanique de notation graduée -----
 
-    private static DomainPoints Score(params (decimal Points, bool Satisfied, bool Applicable)[] criteria)
+    private readonly record struct Criterion(decimal Max, decimal Fraction, bool Applicable);
+
+    private static Criterion Bool(decimal max, bool ok, bool applicable = true)
+        => new(max, ok ? 1m : 0m, applicable);
+
+    private static Criterion Graded(decimal max, double fraction01, bool applicable = true)
+        => new(max, (decimal)Math.Clamp(fraction01, 0d, 1d), applicable);
+
+    private static DomainPoints Score(params Criterion[] criteria)
     {
         decimal maxSafe = 0m, obtained = 0m;
         foreach (var c in criteria)
         {
             if (!c.Applicable) continue;
-            maxSafe += c.Points;
-            if (c.Satisfied) obtained += c.Points;
+            maxSafe += c.Max;
+            obtained += c.Max * c.Fraction;
         }
         return DomainPoints.Measured(obtained, maxSafe);
     }
 
-    private static bool IsHighPerformancePlan(string? powerPlan)
+    /// <summary>Rampe linéaire : 0 au pire, 1 au meilleur (best peut être &lt; worst si « plus bas = mieux »).</summary>
+    private static double Ramp(double value, double worst, double best)
     {
-        if (string.IsNullOrWhiteSpace(powerPlan)) return false;
-        var p = powerPlan.Trim();
-        return p.Equals("High performance", StringComparison.OrdinalIgnoreCase)
-            || p.Equals("Ultimate Performance", StringComparison.OrdinalIgnoreCase)
-            || p.Equals("Ultimate", StringComparison.OrdinalIgnoreCase);
+        if (worst == best) return value == best ? 1d : 0d;
+        return Math.Clamp((value - worst) / (best - worst), 0d, 1d);
     }
 
-    private static bool XmpProfileAvailable(SystemSnapshot snapshot)
-        => snapshot.Hardware.Ram.Modules.Any(mod => mod.XmpExpoProfileAvailable);
+    private static double PowerPlanFactor(string? powerPlan)
+    {
+        if (string.IsNullOrWhiteSpace(powerPlan)) return 0d;
+        var p = powerPlan.Trim();
+        if (Eq(p, "High performance") || Eq(p, "Ultimate Performance") || Eq(p, "Ultimate")) return 1.0d;
+        if (Eq(p, "Balanced")) return 0.3d;
+        return 0.0d; // Économie d'énergie / inconnu
+    }
+
+    private static double SmartFactor(StorageSmartHealth health) => health switch
+    {
+        StorageSmartHealth.OK => 1.0d,
+        StorageSmartHealth.Warning => 0.5d,
+        StorageSmartHealth.Critical => 0.0d,
+        _ => 0.0d,
+    };
+
+    private static StorageSmartHealth SystemDriveSmart(SystemSnapshot s)
+    {
+        var drive = s.Hardware.Storage.FirstOrDefault(d => d.IsSystemDrive) ?? s.Hardware.Storage.FirstOrDefault();
+        return drive?.SmartHealth ?? StorageSmartHealth.Unknown;
+    }
+
+    private static bool HasSsdOrNvme(SystemSnapshot s)
+        => s.Hardware.Storage.Any(d => d.Type is StorageType.SSD or StorageType.NVMe);
+
+    private static bool XmpProfileAvailable(SystemSnapshot s)
+        => s.Hardware.Ram.Modules.Any(m => m.XmpExpoProfileAvailable);
+
+    private static bool Eq(string a, string b) => a.Equals(b, StringComparison.OrdinalIgnoreCase);
 }
