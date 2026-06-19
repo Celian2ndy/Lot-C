@@ -1,0 +1,23 @@
+# PostgreSQL local pour le développement du Lot C (King's Optimization — cloud).
+# Démarrage : docker compose up -d   (les valeurs par défaut sont DEV LOCAL uniquement).
+# En prod, la base et les secrets sont gérés côté humain (jamais ces valeurs).
+services:
+  postgres:
+    image: postgres:16
+    container_name: kingscloud-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kings}
+      POSTGRES_DB: ${POSTGRES_DB:-kingscloud}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kings_local_dev}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - kingscloud-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kings} -d ${POSTGRES_DB:-kingscloud}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  kingscloud-pgdata:

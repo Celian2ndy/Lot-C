@@ -25,7 +25,9 @@ coverage*.cobertura.xml
 .vscode/
 
 # --- Local secrets / env (never commit) ---
+.env
 *.env
+!.env.example
 appsettings.*.local.json
 secrets.json
 
