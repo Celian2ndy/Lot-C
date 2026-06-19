@@ -8,10 +8,24 @@
 ## Ajustements du Lot A (intégrés)
 - **(a)** `isOverclocking` ajouté (voir §2). ✔
 - **(b)** `action`/`revert` sont **possédés et définis par A** (TweakEngine), **opaques pour C** : C ne
-  les lit ni ne les interprète jamais. Leur format suit le **brouillon de A** *(non reproduit ici : il
-  appartient à A ; à lier quand A le publie)*. ✔
+  les lit ni ne les interprète jamais. A en publie le **schéma d'action-données** (types
+  `registry`/`service`/`powerPlan`/`vendorSdk` + params) : `kings-core/docs/PROPOSAL_tweak-action-schema.md`,
+  à figer dans `kings-schemas` **à côté** du descripteur. ✔
 - **(c)** `settingEquals.{domain,field}` (et `effect.{domain,field}`) sont **alignés sur les noms EXACTS
   de `settingsState`** du `SystemSnapshot` (= ce que produit A). Table de référence en §3.1. ✔
+
+## Consensus A/C (round 2, 2026-06-20)
+- `action`/`revert` **structurés pour A**, opaques pour C. `revert` = la **méthode** ;
+  `revert.strategy = "restoreCaptured"` par défaut ; la **valeur d'origine** est capturée à l'exécution
+  et **journalisée par A** (jeton de revert auto-suffisant, rejouable sans relire le catalogue — A3/A4).
+  C n'en dépend pas.
+- `effect` (champ **C**, lisible, pour simuler le score) reste **distinct** de `action`/`revert` (champ **A**). Pas de fusion.
+- `isOverclocking` : **lu par C** pour router (plan 1-clic ↔ `OcProposal`). C **exclut tout tweak
+  `isOverclocking` du flux 1-clic** (cohérent **A5**) et ne le propose qu'en OC `veryLow`.
+- `requiresStabilityTest` : champ **A-owned** du descripteur ; C garde `OcProposal.requiresStabilityTest = true` en v1.
+- Un tweak dont le **type d'action n'est pas encore implémenté/testé par A** est **refusé par A** (jamais
+  à l'aveugle) + **deny-list** de clés/services protégés côté A : C ne pré-filtre pas par type (opaque) et
+  compte sur ce refus comme défense en profondeur ; le tweak ressort alors en `skipped` du rapport.
 
 ## 1. Champs cœur du descripteur
 
@@ -31,7 +45,8 @@
 | Champ | Type | Pourquoi | Défaut |
 |---|---|---|---|
 | `critical` | bool | `OptimizationPlan.step.critical` : si vrai et échec ⇒ rollback complet | `false` |
-| `isOverclocking` | bool | Sépare le **plan 1-clic** du **flux OC** (`source=vendorSdk` ne suffit pas) | `false` |
+| `isOverclocking` | bool (A-owned, **lu par C**) | Sépare le **plan 1-clic** du **flux OC** (`source=vendorSdk` ne suffit pas) | `false` |
+| `requiresStabilityTest` | bool (A-owned) | Test de stabilité après OC (A). C garde `OcProposal.requiresStabilityTest = true` en v1. | `true` (OC) |
 | `expectedGainPct` | number ≥ 0 | Requis par `OcProposal.step` ; la sélection OC **maximise le gain** | `0` |
 | `effect` | `{ domain, field, value }` | C **simule** l'effet sur `settingsState` puis recalcule le score (`estimatedScoreAfter`). `action` reste opaque (A). | — |
 | **incompatibilités** | liste séparée `[{ a, b, reason }]` | Plan « sans incompatibilités mutuelles » (calque CDC §13.1), partagée A/C | — |
