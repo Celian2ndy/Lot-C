@@ -106,6 +106,35 @@ public sealed class ApiIntegrationTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Packs_latest_returns_signed_manifest()
+    {
+        var client = await AuthenticatedClientAsync();
+        var resp = await client.GetAsync("/v1/packs/latest");
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var m = await resp.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(Guid.TryParse(m.GetProperty("packId").GetString(), out _));
+        Assert.Matches(@"^\d+\.\d+\.\d+$", m.GetProperty("packVersion").GetString()!);
+        Assert.Matches(@"^\d+\.\d+\.\d+$", m.GetProperty("minAppVersion").GetString()!);
+        Assert.False(string.IsNullOrWhiteSpace(m.GetProperty("signature").GetString()));
+        Assert.Equal(JsonValueKind.Object, m.GetProperty("payload").ValueKind);
+    }
+
+    [Fact]
+    public async Task Packs_by_id_returns_manifest_then_404_for_unknown()
+    {
+        var client = await AuthenticatedClientAsync();
+        var latest = await (await client.GetAsync("/v1/packs/latest")).Content.ReadFromJsonAsync<JsonElement>();
+        var id = latest.GetProperty("packId").GetString();
+
+        var ok = await client.GetAsync($"/v1/packs/{id}");
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+
+        var missing = await client.GetAsync($"/v1/packs/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+    }
+
+    [Fact]
     public async Task Gdpr_request_is_accepted()
     {
         var client = await AuthenticatedClientAsync();

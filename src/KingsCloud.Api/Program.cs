@@ -1,5 +1,6 @@
 using Kings.Cloud.Api.Configuration;
 using Kings.Cloud.Api.Data;
+using Kings.Cloud.Api.Packs;
 using Kings.Cloud.Api.Security;
 using Kings.Cloud.Api.Services;
 using Microsoft.AspNetCore.Authentication;
@@ -15,6 +16,7 @@ builder.Services.AddDbContext<KingsCloudDbContext>(options =>
     options.UseNpgsql(DatabaseConnection.Resolve(builder.Configuration)));
 
 builder.Services.AddSingleton<LeaderboardScoring>();
+builder.Services.AddSingleton<PackSigner>();
 
 builder.Services
     .AddAuthentication(SessionTokenAuthenticationHandler.SchemeName)
@@ -32,8 +34,9 @@ if (app.Environment.IsDevelopment())
     // Dev : applique les migrations + seed idempotent (compte/licence de test).
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<KingsCloudDbContext>();
+    var signer = scope.ServiceProvider.GetRequiredService<PackSigner>();
     await db.Database.MigrateAsync();
-    await DevSeeder.SeedAsync(db);
+    await DevSeeder.SeedAsync(db, signer);
 }
 
 app.UseAuthentication();
