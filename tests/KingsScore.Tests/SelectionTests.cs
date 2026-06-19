@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Kings.Score.Catalog;
 using Kings.Score.Contracts.Snapshot;
 using Kings.Score.Scoring;
@@ -58,6 +59,26 @@ public sealed class SelectionTests
     }
 
     [Fact]
+    public void Plan_is_empty_when_no_applicable_tweaks()
+    {
+        var snap = Snap();
+        var current = new ScoreEngine().ComputeCore(snap).Global;
+        var plan = new SelectionEngine(new TestCatalog()).BuildPlan(snap, ocOptIn: false, PlanId);
+
+        Assert.Empty(plan.Steps);
+        Assert.Equal(current, plan.EstimatedScoreAfter); // rien appliqué => score inchangé
+    }
+
+    [Fact]
+    public void Plan_is_deterministic()
+    {
+        var engine = new SelectionEngine(TestCatalogs.Seed);
+        var a = engine.BuildPlan(Snap(), ocOptIn: true, PlanId);
+        var b = engine.BuildPlan(Snap(), ocOptIn: true, PlanId);
+        Assert.Equal(Serialize(a), Serialize(b));
+    }
+
+    [Fact]
     public void Plan_estimated_score_after_beats_current()
     {
         var snap = Snap();
@@ -107,6 +128,55 @@ public sealed class SelectionTests
         Assert.False(oc.Eligible);
         Assert.False(string.IsNullOrWhiteSpace(oc.IneligibilityReason));
         Assert.Empty(oc.Steps);
+    }
+
+    [Fact]
+    public void Oc_is_ineligible_for_unknown_chassis()
+    {
+        var snap = Snap();
+        snap.Hardware.Chassis = HardwareChassis.Unknown; // par prudence : non éligible
+        var catalog = new TestCatalog { Tweaks = new[] { TestCatalogs.Oc("oc.gpu.mild", 3m) } };
+
+        var oc = new SelectionEngine(catalog).BuildOcProposal(snap, ProposalId);
+
+        Assert.False(oc.Eligible);
+        Assert.False(string.IsNullOrWhiteSpace(oc.IneligibilityReason));
+        Assert.Empty(oc.Steps);
+    }
+
+    [Fact]
+    public void Oc_proposal_is_deterministic()
+    {
+        var catalog = new TestCatalog
+        {
+            Tweaks = new[] { TestCatalogs.Oc("oc.a", 3m), TestCatalogs.Oc("oc.b", 4m), TestCatalogs.Oc("oc.c", 2m) },
+            Incompatibilities = new[] { new Incompatibility("oc.a", "oc.b", "test") },
+        };
+        var engine = new SelectionEngine(catalog);
+        var a = engine.BuildOcProposal(Snap(), ProposalId);
+        var b = engine.BuildOcProposal(Snap(), ProposalId);
+        Assert.Equal(Serialize(a), Serialize(b));
+    }
+
+    [Fact]
+    public void Oc_picks_single_highest_gain_when_all_incompatible()
+    {
+        var catalog = new TestCatalog
+        {
+            Tweaks = new[] { TestCatalogs.Oc("oc.x", 3m), TestCatalogs.Oc("oc.y", 4m), TestCatalogs.Oc("oc.z", 2m) },
+            Incompatibilities = new[]
+            {
+                new Incompatibility("oc.x", "oc.y", "test"),
+                new Incompatibility("oc.x", "oc.z", "test"),
+                new Incompatibility("oc.y", "oc.z", "test"),
+            },
+        };
+
+        var oc = new SelectionEngine(catalog).BuildOcProposal(Snap(), ProposalId);
+
+        Assert.Single(oc.Steps);
+        Assert.Equal("oc.y", oc.Steps[0].TweakId); // le plus haut gain réalisable seul
+        Assert.Equal(4d, oc.EstimatedGainPct);
     }
 
     [Fact]
@@ -167,4 +237,6 @@ public sealed class SelectionTests
         Assert.All(oc.Steps, s => Assert.True(s.RollbackOnInstability));
         Assert.All(oc.Steps, s => Assert.Equal($"revert:{s.TweakId}", s.RevertExact));
     }
+
+    private static string Serialize(object value) => JsonSerializer.Serialize(value, Fixtures.Json);
 }

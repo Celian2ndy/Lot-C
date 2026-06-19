@@ -1,6 +1,8 @@
 # PROPOSITION — Descripteur de réglage (tweak) du catalogue
 
-> **Statut : PROPOSITION (Lot C) — à figer côté humain, partagé avec le Lot A.**
+> **Statut : PROPOSITION (Lot C) — NON FIGÉE.** Contrat **partagé A/C** : à confirmer par l'agent du
+> **Lot A** (côté TweakEngine) avant d'être figé dans `kings-schemas`, ensemble. Le moteur de sélection
+> du Lot C est codé contre ce modèle, ajustable sans coût tant qu'il n'est pas figé.
 > Ce fichier n'est PAS le contrat. Le descripteur n'existe pas encore dans `kings-schemas`.
 > Je code le **moteur de sélection** contre ce modèle ; je n'invente pas le **contenu** du catalogue
 > (livrable humain validé sur matériel réel — socle §8). Une fois ce format figé dans `kings-schemas`,

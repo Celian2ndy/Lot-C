@@ -10,9 +10,9 @@ public enum CatalogRiskLevel { VeryLow, Low, Medium, High, VeryHigh }
 public enum TweakSource { Internal, VendorSdk }
 
 /// <summary>
-/// Un réglage du catalogue, vu par le MOTEUR DE SÉLECTION (Lot C). Modèle proposé
-/// (cf. proposals/tweak-descriptor.md) ; le contenu réel du catalogue est un livrable humain (C5),
-/// le format du descripteur reste à figer côté humain (partagé avec Lot A).
+/// Un réglage du catalogue, vu par le MOTEUR DE SÉLECTION (Lot C). Modèle PROPOSÉ, NON FIGÉ
+/// (cf. proposals/tweak-descriptor.md) : contrat partagé A/C, à confirmer par le Lot A (TweakEngine)
+/// avant d'être figé dans kings-schemas. Le contenu réel du catalogue est un livrable humain (C5).
 ///
 /// <para><see cref="AppliesTo"/> (condition) et <see cref="ApplyEffect"/> (effet sur settingsState)
 /// sont ici des délégués évaluables ; dans le vrai catalogue distribué en packs, ils seront encodés

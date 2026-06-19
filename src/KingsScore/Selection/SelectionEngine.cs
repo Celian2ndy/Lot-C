@@ -129,8 +129,13 @@ public sealed class SelectionEngine
 
     private static (bool Eligible, string? Reason) EvaluateEligibility(SystemSnapshot snapshot)
     {
-        if (snapshot.Hardware.Chassis == HardwareChassis.Laptop)
+        // Prudence (promesse n°1, « en cas de doute on n'applique pas ») : seul un desktop confirmé,
+        // BIOS non verrouillé, est éligible. Laptop et châssis indéterminé sont refusés et motivés.
+        var chassis = snapshot.Hardware.Chassis;
+        if (chassis == HardwareChassis.Laptop)
             return (false, "Machine portable : overclocking non éligible en v1.");
+        if (chassis != HardwareChassis.Desktop)
+            return (false, "Châssis indéterminé : par prudence, overclocking non éligible.");
         if (snapshot.Hardware.Motherboard.BiosLocked)
             return (false, "BIOS verrouillé (OEM) : overclocking non éligible.");
         return (true, null);
