@@ -1,0 +1,14 @@
+<Project>
+  <!--
+    Réglages communs à tous les projets du Lot C (King's Optimization — cloud & score).
+    Le moteur de score (KingsScore) est une bibliothèque PURE : aucune dépendance infra.
+  -->
+  <PropertyGroup>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+</Project>

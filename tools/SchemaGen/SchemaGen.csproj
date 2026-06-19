@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Outil de DÉVELOPPEMENT (hors solution applicative) : génère les types C# des objets
+    pivots à partir de schemas/json-schema/objects/*.schema.json (source de vérité v1.0.1),
+    via NJsonSchema. Les .cs générés sont écrits dans src/KingsScore/Contracts/Generated/.
+    On ne réécrit JAMAIS un type à la main (invariant I9). Régénération : voir README.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NJsonSchema.CodeGeneration.CSharp" Version="11.1.0" />
+  </ItemGroup>
+
+</Project>

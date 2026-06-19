@@ -1,0 +1,35 @@
+# --- Working artifacts (Lot C agent) ---
+_extracted/
+Lot_C.zip
+
+# --- .NET build output ---
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.user
+*.suo
+.vs/
+
+# --- Test / coverage ---
+[Tt]est[Rr]esult*/
+*.trx
+coverage*.json
+coverage*.xml
+coverage*.cobertura.xml
+
+# --- Rider / VS Code ---
+.idea/
+.vscode/
+
+# --- Local secrets / env (never commit) ---
+*.env
+appsettings.*.local.json
+secrets.json
+
+# --- OS noise ---
+Thumbs.db
+desktop.ini
+.DS_Store
