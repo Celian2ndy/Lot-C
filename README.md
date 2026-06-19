@@ -43,11 +43,14 @@ toute évolution **versionnée** du sous-module `schemas/`. On ne modifie jamais
 
 ```
 schemas/                     sous-module kings-schemas v1.0.1 (contrat, source de vérité)
+proposals/                   propositions à figer côté humain (descripteur de tweak, leviers de score)
 src/KingsScore/
   Contracts/Generated/       types C# générés depuis les JSON Schema
   Json/                      convertisseur STJ honorant EnumMember (valeurs exactes du contrat)
-  Scoring/                   barème, fonction de points, modèle, moteur
-tests/KingsScore.Tests/      tests xUnit (reproductibilité, redistribution, structure)
+  Scoring/                   barème, fonction de points (graduée), modèle, moteur de score
+  Catalog/                   modèle de catalogue (descripteur proposé, ICatalog)
+  Selection/                 moteur de sélection (plan d'optimisation + proposition OC veryLow)
+tests/KingsScore.Tests/      tests xUnit (reproductibilité, redistribution, échelle, sélection)
 tools/SchemaGen/             générateur de types (NJsonSchema) — outil de dev
 ```
 
@@ -61,9 +64,13 @@ tools/SchemaGen/             générateur de types (NJsonSchema) — outil de de
   1 décimale en sortie). Aucun domaine n'« absorbe » l'écart d'arrondi.
 - **Barème séparé de la fonction de points (C8)** ; versionnés ensemble sous `weightsetVersion`
   (changer l'un OU l'autre bump la version, sinon la reproductibilité serait rompue).
+- **Score gradué** : chaque domaine est noté sur plusieurs sous-réglages (points partiels), 100 par
+  domaine seulement si tout est optimal. Leviers détectables : `proposals/score-levers.md`.
+- **Sélection (Étape 2)** : `OptimizationPlan` (réglages applicables, sans incompatibilités, ordonnés,
+  `estimatedScoreAfter` par re-score) ; `OcProposal` zone `veryLow` uniquement, gain maximisé, sinon
+  vide ou « non éligible » motivé (C4). Codé contre le descripteur proposé + un catalogue de test.
 - **Anti-triche (C3)** : *(backend, à venir)* le score du leaderboard est recalculé côté serveur à
   partir du snapshot brut ; jamais la valeur cliente.
-- **Overclocking (C4)** : *(à venir)* uniquement `veryLow`, gain maximisé dans cette zone, sinon vide.
 
 ## En attente de validation / livrables humains
 
